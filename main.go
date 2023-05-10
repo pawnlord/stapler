@@ -65,13 +65,15 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 	var server net.Listener
 	defer original_server.Close()
 
-	fmt.Println("Creating server from " + original_server.RemoteAddr().String())
+	fmt.Println("Creating server from " + original_server.LocalAddr().String())
 
-	server, err := net.Listen(SERVER_TYPE, original_server.RemoteAddr().String())
+	server, err := net.Listen(SERVER_TYPE, original_server.LocalAddr().String())
 	if err != nil {
+		original_server.Write([]byte("Fail"))
 		fmt.Println(err.Error())
 		return
 	}
+	original_server.Write([]byte("Success"))
 
 	defer server.Close()
 

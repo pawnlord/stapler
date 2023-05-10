@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	SERVER_HOST = "localhost"
+	SERVER_HOST = ""
 	SERVER_PORT = "9988"
 	SERVER_TYPE = "tcp"
 )
@@ -21,9 +21,15 @@ type Server struct {
 type Client struct {
 	conn       net.Conn
 	p2p_client chan net.Conn
+	open_chan  chan bool
 }
 
 func (server Server) processClient(client Client) {
+	defer func() {
+		client.conn.Close()
+		delete(server.clients, strings.Split(client.conn.RemoteAddr().String(), ":")[0])
+	}()
+
 	buffer := make([]byte, 1024)
 	mLen, err := client.conn.Read(buffer)
 	if err != nil {
@@ -34,19 +40,31 @@ func (server Server) processClient(client Client) {
 	var msg string
 	if return_addr, ok := server.clients[address]; ok {
 		fmt.Println("Punching through")
-		msg = return_addr.conn.RemoteAddr().String()
+		msg = return_addr.conn.RemoteAddr().String() + " S"
 		return_addr.p2p_client <- client.conn
-		fmt.Println("Punched")
+		_, err = client.conn.Write([]byte(msg))
+
+		mLen, err = client.conn.Read(buffer)
+		if string(buffer[:mLen]) == "Success" {
+			return_addr.open_chan <- true
+		} else {
+			return_addr.open_chan <- false
+		}
 	} else {
 		fmt.Println("waiting for connection to ask to be punched through")
 		return_conn := <-client.p2p_client
-		msg = return_conn.RemoteAddr().String()
+		msg = return_conn.RemoteAddr().String() + " C"
+		_, err = client.conn.Write([]byte(msg))
+		_, err = client.conn.Read(buffer)
+		success := <-client.open_chan
 
+		if success {
+			client.conn.Write([]byte("Server Opened"))
+		} else {
+			client.conn.Write([]byte("F"))
+		}
 	}
 
-	_, err = client.conn.Write([]byte(msg))
-
-	client.conn.Close()
 }
 
 func main() {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"strings"
 )
 
@@ -63,14 +64,26 @@ func main() {
 
 func serverMain(p2p_addr string, original_server net.Conn) {
 	var server net.Listener
+	var err error
 	defer original_server.Close()
 
 	fmt.Println("Creating server from " + original_server.LocalAddr().String())
 
-	file, err := original_server.(*net.TCPConn).File()
+	if runtime.GOOS == "windows" {
+		server, err = net.Listen(SERVER_TYPE, original_server.LocalAddr().String())
+	} else {
+		var file *os.File
+		file, err = original_server.(*net.TCPConn).File()
 
+		if err != nil {
+			original_server.Write([]byte("Fail"))
+			fmt.Println(err.Error())
+			return
+		}
+
+		server, err = net.FileListener(file)
+	}
 	// server, err := net.Listen(SERVER_TYPE, original_server.LocalAddr().String())
-	server, err = net.FileListener(file)
 
 	if err != nil {
 		original_server.Write([]byte("Fail"))
@@ -105,21 +118,27 @@ func clientMain(p2p_addr string, original_server net.Conn) {
 	buffer := make([]byte, 1024)
 	{
 		defer original_server.Close()
+		fmt.Println("Writing success to original server")
 		original_server.Write([]byte("Success"))
 
+		fmt.Println("Reading for failure from original server")
 		mLen, err := original_server.Read(buffer)
 		if string(buffer[:mLen]) == "F" {
 			fmt.Println("Server failed on remote client")
 			return
 		}
+		fmt.Println("Success, connecting to p2p server")
 
 		connection, err = net.Dial(SERVER_TYPE, p2p_addr)
 		if err != nil {
+			fmt.Println("Fail, aborting")
 			original_server.Write([]byte("Fail"))
+			return
 		}
 
 	}
 	defer connection.Close()
+	fmt.Println("Success, reading from p2p server")
 	connection.Read(buffer)
 
 	fmt.Println(string(buffer))

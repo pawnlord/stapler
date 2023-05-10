@@ -65,13 +65,25 @@ func main() {
 func serverMain(p2p_addr string, original_server net.Conn) {
 	var server net.Listener
 	var err error
-	defer original_server.Close()
-
-	fmt.Println("Creating server from " + original_server.LocalAddr().String())
+	original_closed := false
+	defer func() {
+		if original_closed {
+			original_server.Close()
+		}
+	}()
+	fmt.Println("Starting server from " + original_server.LocalAddr().String())
 
 	if runtime.GOOS == "windows" {
 		fmt.Println("Windows, reopening local address")
+
 		server, err = net.Listen(SERVER_TYPE, original_server.LocalAddr().String())
+		if err != nil {
+			original_server.Write([]byte("Fail"))
+			fmt.Println(err.Error())
+			return
+		}
+		original_server.Write([]byte("Success"))
+
 	} else {
 		fmt.Println("Non-windows, using file listener")
 		var file *os.File
@@ -82,21 +94,19 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 			fmt.Println(err.Error())
 			return
 		}
-		fd := file.Fd()
-		f := os.NewFile(uintptr(fd), "listener")
-
 		defer file.Close()
-		defer f.Close()
 
-		server, err = net.FileListener(f)
-	}
+		server, err = net.FileListener(file)
 
-	if err != nil {
-		original_server.Write([]byte("Fail"))
-		fmt.Println(err.Error())
-		return
+		if err != nil {
+			original_server.Write([]byte("Fail"))
+			fmt.Println(err.Error())
+			return
+		}
+		original_server.Write([]byte("Success"))
+		original_closed = true
+		original_server.Close()
 	}
-	original_server.Write([]byte("Success"))
 
 	defer server.Close()
 

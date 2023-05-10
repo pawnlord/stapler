@@ -16,8 +16,9 @@ const (
 type ConnType string
 
 const (
-	ServerConn ConnType = "S"
-	ClientConn ConnType = "C"
+	ServerConn  ConnType = "S"
+	ClientConn  ConnType = "C"
+	InvalidConn ConnType = ""
 )
 
 func strToConnType(str string) ConnType {
@@ -26,6 +27,8 @@ func strToConnType(str string) ConnType {
 		return ServerConn
 	case "C":
 		return ClientConn
+	default:
+		return InvalidConn
 	}
 }
 
@@ -46,31 +49,30 @@ func main() {
 		fmt.Println("Error reading:", err.Error())
 	}
 	fmt.Println("Received: ", string(buffer[:mLen]))
-	var conn_string string
-	p2p_addr, conn_string = strings.Split(string(buffer[:mLen]), " ")[0], strings.Split(string(buffer[:mLen]), " ")[1]
+	conn_info := strings.Split(string(buffer[:mLen]), " ")
 
-	conn_type = strToConnType(conn_string)
+	p2p_addr = conn_info[0]
+	conn_type = strToConnType(conn_info[1])
+
 	if conn_type == ServerConn {
 		serverMain(p2p_addr, connection)
 	} else {
 		clientMain(p2p_addr, connection)
 	}
-
 }
 
 func serverMain(p2p_addr string, original_server net.Conn) {
 	var server net.Listener
-	var err error
-	{
-		defer original_server.Close()
-		server, err = net.Listen(SERVER_TYPE, SERVER_HOST+":"+SERVER_PORT)
-		if err != nil {
-			original_server.Write([]byte("Fail"))
-			fmt.Errorf(err.Error())
-			return
-		}
-		original_server.Write([]byte("Success"))
+	defer original_server.Close()
+
+	fmt.Println("Creating server from " + original_server.RemoteAddr().String())
+
+	server, err := net.Listen(SERVER_TYPE, original_server.RemoteAddr().String())
+	if err != nil {
+		fmt.Println(err.Error())
+		return
 	}
+
 	defer server.Close()
 
 	for {
@@ -80,7 +82,7 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 			os.Exit(1)
 		}
 		if strings.Split(connection.RemoteAddr().String(), ":")[0] != strings.Split(p2p_addr, ":")[0] {
-			fmt.Errorf("SECURITY WARNING: unexpected client connected, closing connection")
+			fmt.Println("SECURITY WARNING: unexpected client connected, closing connection")
 			connection.Close()
 		}
 		connection.Write([]byte("Hello!!"))
@@ -91,7 +93,7 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 
 func clientMain(p2p_addr string, original_server net.Conn) {
 	var connection net.Conn
-
+	fmt.Println("Creating client to " + p2p_addr)
 	buffer := make([]byte, 1024)
 	{
 		defer original_server.Close()
@@ -99,7 +101,7 @@ func clientMain(p2p_addr string, original_server net.Conn) {
 
 		mLen, err := original_server.Read(buffer)
 		if string(buffer[:mLen]) == "F" {
-			fmt.Errorf("Server failed on remote client")
+			fmt.Println("Server failed on remote client")
 		}
 
 		connection, err = net.Dial(SERVER_TYPE, p2p_addr)

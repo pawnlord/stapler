@@ -85,7 +85,7 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("client connected, " + connection.RemoteAddr().String() + "  " + connection.LocalAddr().Network())
-		client := Client{connection, make(chan net.Conn)}
+		client := Client{connection, make(chan net.Conn), make(chan bool)}
 		server.clients[strings.Split(connection.RemoteAddr().String(), ":")[0]] = client
 		go server.processClient(client)
 	}

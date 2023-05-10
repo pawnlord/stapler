@@ -67,7 +67,11 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 
 	fmt.Println("Creating server from " + original_server.LocalAddr().String())
 
-	server, err := net.Listen(SERVER_TYPE, original_server.LocalAddr().String())
+	file, err := original_server.(*net.TCPConn).File()
+
+	// server, err := net.Listen(SERVER_TYPE, original_server.LocalAddr().String())
+	server, err = net.FileListener(file)
+
 	if err != nil {
 		original_server.Write([]byte("Fail"))
 		fmt.Println(err.Error())

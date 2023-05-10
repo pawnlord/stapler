@@ -18,7 +18,7 @@ func main() {
 		panic(err)
 	}
 	///send some data
-	_, err = connection.Write([]byte("Hello Server! Greetings."))
+	_, err = connection.Write([]byte("127.0.0.1"))
 	buffer := make([]byte, 1024)
 	mLen, err := connection.Read(buffer)
 	if err != nil {

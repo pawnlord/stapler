@@ -86,9 +86,11 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 		if strings.Split(connection.RemoteAddr().String(), ":")[0] != strings.Split(p2p_addr, ":")[0] {
 			fmt.Println("SECURITY WARNING: unexpected client connected, closing connection")
 			connection.Close()
+		} else {
+			connection.Write([]byte("Hello!!---\x00"))
+			connection.Close()
+			return
 		}
-		connection.Write([]byte("Hello!!"))
-		connection.Close()
 	}
 
 }
@@ -104,6 +106,7 @@ func clientMain(p2p_addr string, original_server net.Conn) {
 		mLen, err := original_server.Read(buffer)
 		if string(buffer[:mLen]) == "F" {
 			fmt.Println("Server failed on remote client")
+			return
 		}
 
 		connection, err = net.Dial(SERVER_TYPE, p2p_addr)

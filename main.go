@@ -70,8 +70,10 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 	fmt.Println("Creating server from " + original_server.LocalAddr().String())
 
 	if runtime.GOOS == "windows" {
+		fmt.Println("Windows, reopening local address")
 		server, err = net.Listen(SERVER_TYPE, original_server.LocalAddr().String())
 	} else {
+		fmt.Println("Non-windows, using file listener")
 		var file *os.File
 		file, err = original_server.(*net.TCPConn).File()
 
@@ -80,10 +82,10 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 			fmt.Println(err.Error())
 			return
 		}
+		defer file.Close()
 
 		server, err = net.FileListener(file)
 	}
-	// server, err := net.Listen(SERVER_TYPE, original_server.LocalAddr().String())
 
 	if err != nil {
 		original_server.Write([]byte("Fail"))
@@ -100,6 +102,7 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 			fmt.Println("Error accepting: ", err.Error())
 			os.Exit(1)
 		}
+
 		if strings.Split(connection.RemoteAddr().String(), ":")[0] != strings.Split(p2p_addr, ":")[0] {
 			fmt.Println("SECURITY WARNING: unexpected client connected, closing connection")
 			connection.Close()

@@ -82,9 +82,13 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 			fmt.Println(err.Error())
 			return
 		}
-		defer file.Close()
+		fd := file.Fd()
+		f := os.NewFile(uintptr(fd), "listener")
 
-		server, err = net.FileListener(file)
+		defer file.Close()
+		defer f.Close()
+
+		server, err = net.FileListener(f)
 	}
 
 	if err != nil {

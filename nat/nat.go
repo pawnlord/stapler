@@ -1,6 +1,8 @@
 package nat
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func Test() {
 	fmt.Println("Hello!!!!")

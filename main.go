@@ -5,6 +5,8 @@ import (
 	"net"
 	"os"
 	"strings"
+
+	"github.com/pawnlord/stapler/nat"
 )
 
 const (
@@ -35,9 +37,12 @@ func strToConnType(str string) ConnType {
 func main() {
 	var p2p_addr string
 	var conn_type ConnType
+	var dialer *net.Dialer
+
+	dialer = nat.NewNATDialer()
 
 	//establish connection
-	connection, err := net.Dial(SERVER_TYPE, SERVER_HOST+":"+SERVER_PORT)
+	connection, err := dialer.Dial(SERVER_TYPE, SERVER_HOST+":"+SERVER_PORT)
 	if err != nil {
 		panic(err)
 	}
@@ -72,9 +77,6 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 	}()
 	fmt.Println("Starting server from " + original_server.LocalAddr().String())
 
-	// if runtime.GOOS == "windows" {
-	// 	fmt.Println("Windows, reopening local address")
-
 	server, err = net.Listen(SERVER_TYPE, original_server.LocalAddr().String())
 	if err != nil {
 		original_server.Write([]byte("Fail"))
@@ -83,30 +85,6 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 	}
 	original_server.Write([]byte("Success"))
 	original_server.Close()
-	// } else {
-	// 	fmt.Println("Non-windows, using file listener")
-	// 	var file *os.File
-	// 	file, err = original_server.(*net.TCPConn).File()
-
-	// 	if err != nil {
-	// 		original_server.Write([]byte("Fail"))
-	// 		fmt.Println(err.Error())
-	// 		return
-	// 	}
-	// 	defer file.Close()
-
-	// 	server, err = net.FileListener(file)
-	// 	server.
-
-	// 	if err != nil {
-	// 		original_server.Write([]byte("Fail"))
-	// 		fmt.Println(err.Error())
-	// 		return
-	// 	}
-	// 	original_server.Write([]byte("Success"))
-	// 	original_closed = true
-	// 	original_server.Close()
-	// }
 
 	defer server.Close()
 

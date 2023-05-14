@@ -10,8 +10,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func NewNATDialer() net.Dialer {
-	return net.Dialer{Control: dialerControl}
+func NewNATDialer() *net.Dialer {
+	return &net.Dialer{Control: dialerControl}
 }
 
 func dialerControl(network, address string, conn syscall.RawConn) error {

@@ -15,28 +15,9 @@ const (
 	SERVER_TYPE = "tcp"
 )
 
-type ConnType string
-
-const (
-	ServerConn  ConnType = "S"
-	ClientConn  ConnType = "C"
-	InvalidConn ConnType = ""
-)
-
-func strToConnType(str string) ConnType {
-	switch str {
-	case "S":
-		return ServerConn
-	case "C":
-		return ClientConn
-	default:
-		return InvalidConn
-	}
-}
-
 func main() {
 	var p2p_addr string
-	var conn_type ConnType
+	var conn_type nat.ConnType
 	var dialer *net.Dialer
 
 	dialer = nat.NewNATDialer()
@@ -57,9 +38,9 @@ func main() {
 	conn_info := strings.Split(string(buffer[:mLen]), " ")
 
 	p2p_addr = conn_info[0]
-	conn_type = strToConnType(conn_info[1])
+	conn_type = nat.StrToConnType(conn_info[1])
 
-	if conn_type == ServerConn {
+	if conn_type == nat.LeadConn {
 		serverMain(p2p_addr, connection)
 	} else {
 		clientMain(p2p_addr, connection)
@@ -69,12 +50,6 @@ func main() {
 func serverMain(p2p_addr string, original_server net.Conn) {
 	var server net.Listener
 	var err error
-	original_closed := false
-	defer func() {
-		if original_closed {
-			original_server.Close()
-		}
-	}()
 	fmt.Println("Starting server from " + original_server.LocalAddr().String())
 
 	server, err = net.Listen(SERVER_TYPE, original_server.LocalAddr().String())
@@ -84,7 +59,6 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 		return
 	}
 	original_server.Write([]byte("Success"))
-	original_server.Close()
 
 	defer server.Close()
 
@@ -99,7 +73,7 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 			fmt.Println("SECURITY WARNING: unexpected client connected, closing connection")
 			connection.Close()
 		} else {
-			connection.Write([]byte("Hello!!---\x00"))
+			connection.Write([]byte("H\x00"))
 			connection.Close()
 			return
 		}

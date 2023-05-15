@@ -15,8 +15,8 @@ const (
 )
 
 type ClientConfig struct {
-	hostServer string
-	port       string
+	HostServer string
+	Port       string
 }
 
 type NATClient struct {
@@ -24,18 +24,18 @@ type NATClient struct {
 	// Our role in connecting. Either Server or Client
 	t ConnType
 	// Connection with "match-making" server
-	mainConn net.Conn
+	MainConn net.Conn
 	// Connection with peer
-	p2pConn net.Conn
+	P2pConn net.Conn
 	// Temporary server for the "lead" client, only used to establish communication
 	server net.Listener
 	// Negotiated address we expect communication from
-	p2pAddr string
+	P2pAddr string
 }
 
 func NewNATClient(conf ClientConfig) (*NATClient, error) {
 	dialer := NewNATDialer()
-	conn, err := dialer.Dial("tcp", conf.hostServer+":"+conf.port)
+	conn, err := dialer.Dial("tcp", conf.HostServer+":"+conf.Port)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (client *NATClient) Accept() error {
 	if client.t != LeadConn || client.server == nil {
 		return fmt.Errorf("Client is not acting as server, continuing")
 	}
-	if client.p2pAddr == "" {
+	if client.P2pAddr == "" {
 		return fmt.Errorf("No known peer to accept")
 	}
 	for {
@@ -57,11 +57,11 @@ func (client *NATClient) Accept() error {
 			continue
 		}
 
-		if strings.Split(connection.RemoteAddr().String(), ":")[0] != strings.Split(client.p2pAddr, ":")[0] {
+		if strings.Split(connection.RemoteAddr().String(), ":")[0] != strings.Split(client.P2pAddr, ":")[0] {
 			fmt.Println("SECURITY WARNING: unexpected client connected, closing connection")
 			connection.Close()
 		} else {
-			client.p2pConn = connection
+			client.P2pConn = connection
 			return nil
 		}
 	}

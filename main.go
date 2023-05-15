@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net"
-	"os"
 	"strings"
 
 	"github.com/pawnlord/stapler/nat"
@@ -12,47 +11,43 @@ import (
 const (
 	SERVER_HOST = "192.168.1.19"
 	SERVER_PORT = "9988"
-	SERVER_TYPE = "tcp"
 )
 
 func main() {
 	var p2p_addr string
 	var conn_type nat.ConnType
-	var dialer *net.Dialer
-
-	dialer = nat.NewNATDialer()
-
-	//establish connection
-	connection, err := dialer.Dial(SERVER_TYPE, SERVER_HOST+":"+SERVER_PORT)
+	conf := nat.ClientConfig{HostServer: SERVER_HOST, Port: SERVER_PORT}
+	connection, err := nat.NewNATClient(conf)
 	if err != nil {
 		panic(err)
 	}
 	///send some data
-	_, err = connection.Write([]byte("192.168.1.19"))
+	_, err = connection.MainConn.Write([]byte("192.168.1.19"))
 	buffer := make([]byte, 1024)
-	mLen, err := connection.Read(buffer)
+	mLen, err := connection.MainConn.Read(buffer)
 	if err != nil {
 		fmt.Println("Error reading:", err.Error())
 	}
 	fmt.Println("Received: ", string(buffer[:mLen]))
 	conn_info := strings.Split(string(buffer[:mLen]), " ")
 
-	p2p_addr = conn_info[0]
+	connection.P2pAddr = conn_info[0]
 	conn_type = nat.StrToConnType(conn_info[1])
 
 	if conn_type == nat.LeadConn {
 		serverMain(p2p_addr, connection)
 	} else {
-		clientMain(p2p_addr, connection)
+		clientMain(connection)
 	}
 }
 
-func serverMain(p2p_addr string, original_server net.Conn) {
+func serverMain(p2p_addr string, client *nat.NATClient) {
 	var server net.Listener
 	var err error
+	original_server := client.MainConn
 	fmt.Println("Starting server from " + original_server.LocalAddr().String())
 
-	server, err = net.Listen(SERVER_TYPE, original_server.LocalAddr().String())
+	server, err = net.Listen("tcp", original_server.LocalAddr().String())
 	if err != nil {
 		original_server.Write([]byte("Fail"))
 		fmt.Println(err.Error())
@@ -62,28 +57,15 @@ func serverMain(p2p_addr string, original_server net.Conn) {
 
 	defer server.Close()
 
-	for {
-		connection, err := server.Accept()
-		if err != nil {
-			fmt.Println("Error accepting: ", err.Error())
-			os.Exit(1)
-		}
+	client.Accept()
 
-		if strings.Split(connection.RemoteAddr().String(), ":")[0] != strings.Split(p2p_addr, ":")[0] {
-			fmt.Println("SECURITY WARNING: unexpected client connected, closing connection")
-			connection.Close()
-		} else {
-			connection.Write([]byte("H\x00"))
-			connection.Close()
-			return
-		}
-	}
+	client.P2pConn.Write([]byte("Hello!!"))
 
 }
 
-func clientMain(p2p_addr string, original_server net.Conn) {
-	var connection net.Conn
-	fmt.Println("Creating client to " + p2p_addr)
+func clientMain(client *nat.NATClient) {
+	original_server := client.MainConn
+	fmt.Println("Creating client to " + client.P2pAddr)
 	buffer := make([]byte, 1024)
 	{
 		defer original_server.Close()
@@ -98,7 +80,7 @@ func clientMain(p2p_addr string, original_server net.Conn) {
 		}
 		fmt.Println("Success, connecting to p2p server")
 
-		connection, err = net.Dial(SERVER_TYPE, p2p_addr)
+		client.P2pConn, err = net.Dial("tcp", client.P2pAddr)
 		if err != nil {
 			fmt.Println("Fail, aborting")
 			original_server.Write([]byte("Fail"))
@@ -106,9 +88,9 @@ func clientMain(p2p_addr string, original_server net.Conn) {
 		}
 
 	}
-	defer connection.Close()
+	defer client.P2pConn.Close()
 	fmt.Println("Success, reading from p2p server")
-	connection.Read(buffer)
+	client.P2pConn.Read(buffer)
 
 	fmt.Println(string(buffer))
 }

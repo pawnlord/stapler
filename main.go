@@ -33,7 +33,7 @@ func main() {
 
 	connection.P2pAddr = conn_info[0]
 	conn_type = nat.StrToConnType(conn_info[1])
-
+	connection.Role = conn_type
 	if conn_type == nat.LeadConn {
 		serverMain(p2p_addr, connection)
 	} else {
@@ -42,12 +42,11 @@ func main() {
 }
 
 func serverMain(p2p_addr string, client *nat.NATClient) {
-	var server net.Listener
 	var err error
 	original_server := client.MainConn
 	fmt.Println("Starting server from " + original_server.LocalAddr().String())
 
-	server, err = net.Listen("tcp", original_server.LocalAddr().String())
+	client.Server, err = net.Listen("tcp", original_server.LocalAddr().String())
 	if err != nil {
 		original_server.Write([]byte("Fail"))
 		fmt.Println(err.Error())
@@ -55,10 +54,12 @@ func serverMain(p2p_addr string, client *nat.NATClient) {
 	}
 	original_server.Write([]byte("Success"))
 
-	defer server.Close()
+	defer client.Server.Close()
 
-	client.Accept()
-
+	err = client.Accept()
+	if err != nil {
+		panic(err)
+	}
 	client.P2pConn.Write([]byte("Hello!!"))
 
 }

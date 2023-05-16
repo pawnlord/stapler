@@ -22,13 +22,13 @@ type ClientConfig struct {
 type NATClient struct {
 	dialer *net.Dialer
 	// Our role in connecting. Either Server or Client
-	t ConnType
+	Role ConnType
 	// Connection with "match-making" server
 	MainConn net.Conn
 	// Connection with peer
 	P2pConn net.Conn
 	// Temporary server for the "lead" client, only used to establish communication
-	server net.Listener
+	Server net.Listener
 	// Negotiated address we expect communication from
 	P2pAddr string
 }
@@ -44,14 +44,17 @@ func NewNATClient(conf ClientConfig) (*NATClient, error) {
 }
 
 func (client *NATClient) Accept() error {
-	if client.t != LeadConn || client.server == nil {
+	if client.Role != LeadConn {
 		return fmt.Errorf("Client is not acting as server, continuing")
+	}
+	if client.Server == nil {
+		return fmt.Errorf("Client has not initialized listener")
 	}
 	if client.P2pAddr == "" {
 		return fmt.Errorf("No known peer to accept")
 	}
 	for {
-		connection, err := client.server.Accept()
+		connection, err := client.Server.Accept()
 		if err != nil {
 			fmt.Println("Error accepting: ", err.Error())
 			continue

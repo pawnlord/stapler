@@ -46,15 +46,11 @@ func serverMain(p2p_addr string, client *nat.NATClient) {
 	original_server := client.MainConn
 	fmt.Println("Starting server from " + original_server.LocalAddr().String())
 
-	client.Server, err = net.Listen("tcp", original_server.LocalAddr().String())
+	err = client.Listen()
 	if err != nil {
-		original_server.Write([]byte("Fail"))
-		fmt.Println(err.Error())
-		return
+		panic(err)
 	}
-	original_server.Write([]byte("Success"))
-
-	defer client.Server.Close()
+	defer client.Close()
 
 	err = client.Accept()
 	if err != nil {

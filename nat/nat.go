@@ -71,6 +71,26 @@ func (client *NATClient) Accept() error {
 
 }
 
+func (client *NATClient) Listen() error {
+	if client.Role != LeadConn {
+		return fmt.Errorf("Client is not acting as server, continuing")
+	}
+	var err error
+	client.Server, err = net.Listen("tcp", client.MainConn.LocalAddr().String())
+	if err != nil {
+		client.MainConn.Write([]byte("Fail"))
+		return fmt.Errorf("NATClient.Listen: {}", err.Error())
+	}
+	client.MainConn.Write([]byte("Success"))
+	return nil
+}
+
+func (client *NATClient) Close() {
+	client.Server.Close()
+	client.MainConn.Close()
+	client.P2pConn.Close()
+}
+
 type client struct {
 	conn       net.Conn
 	p2p_client chan net.Conn
